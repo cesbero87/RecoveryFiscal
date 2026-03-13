@@ -1,4 +1,6 @@
+using System.Threading.RateLimiting;
 using Asp.Versioning;
+using Microsoft.AspNetCore.RateLimiting;
 using RecoveryFiscal.Api.Middlewares;
 using RecoveryFiscal.Application;
 using RecoveryFiscal.Infrastructure;
@@ -21,6 +23,22 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services
     .AddControllers()
     .AddNewtonsoftJson();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("fixed", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                QueueLimit = 0,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+});
 
 builder.Services.AddProblemDetails();
 
@@ -52,6 +70,8 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+app.UseRateLimiter();
+
 app.UseSerilogRequestLogging();
 app.UseSwagger();
 app.UseSwaggerUI();
@@ -61,7 +81,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", timestampUtc = DateT
     .WithTags("Health");
 
 app.UseHttpsRedirection();
-app.MapControllers();
+app.MapControllers().RequireRateLimiting("fixed");
 
 app.Run();
 
