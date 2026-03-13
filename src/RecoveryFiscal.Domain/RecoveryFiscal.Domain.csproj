@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>RecoveryFiscal.Domain</RootNamespace>
+    <AssemblyName>RecoveryFiscal.Domain</AssemblyName>
+  </PropertyGroup>
+</Project>

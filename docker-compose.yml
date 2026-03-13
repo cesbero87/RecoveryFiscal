@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: recoveryfiscal-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pwd_123!
+      MYSQL_DATABASE: recovery_fiscal
+      MYSQL_USER: recovery_user
+      MYSQL_PASSWORD: recovery_pwd_123!
+      TZ: Europe/Lisbon
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docs/sql/init:/docker-entrypoint-initdb.d
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot_pwd_123!"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - recoveryfiscal-net
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: recoveryfiscal-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__MySql: Server=mysql;Port=3306;Database=recovery_fiscal;User=recovery_user;Password=recovery_pwd_123!;AllowPublicKeyRetrieval=True;SslMode=None
+    ports:
+      - "8080:8080"
+    networks:
+      - recoveryfiscal-net
+
+volumes:
+  mysql_data:
+
+networks:
+  recoveryfiscal-net:
+    driver: bridge
